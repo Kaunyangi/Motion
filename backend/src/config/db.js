@@ -152,8 +152,16 @@ CREATE TABLE IF NOT EXISTS invoice_items (
 CREATE TABLE IF NOT EXISTS marketplace_ledger (
   id TEXT PRIMARY KEY,
   invoice_id TEXT NOT NULL REFERENCES invoices(id),
-  type TEXT NOT NULL, -- platform_fee | creator_payout
+  type TEXT NOT NULL, -- platform_fee | creator_payout | tax_collected
   amount_cents INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS marketplace_documents (
+  id TEXT PRIMARY KEY,
+  invoice_id TEXT NOT NULL REFERENCES invoices(id),
+  doc_type TEXT NOT NULL, -- receipt | delivery_note
+  file_path TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

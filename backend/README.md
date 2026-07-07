@@ -101,13 +101,24 @@ nothing else needs to change.
 5. `POST /api/marketplace/invoices/:id/send` → `.../pay` simulates the brand
    paying: the creator's `wallet_balance_cents` is credited with the **net**
    payout (subtotal minus the 10% fee) inside the same DB transaction that
-   marks the invoice paid, and the fee/payout split is recorded in
-   `marketplace_ledger` — mirroring the money-safety pattern the ticket
-   checkout already used for commission tracking.
+   marks the invoice paid, and the full three-way split — creator payout,
+   platform fee retained, VAT collected — is recorded in `marketplace_ledger`,
+   one row per bucket, so the sum of the three always equals the total the
+   brand paid. `GET /api/marketplace/admin/summary` (admin-only) totals each
+   bucket across every invoice ever paid — the backend's financial record of
+   the marketplace, independent of any single invoice document.
+6. The same `pay` call auto-generates a **payment receipt** and a **delivery
+   note** (`marketplace-documents.service.js`, pdfkit) and stores them in
+   `marketplace_documents`; the invoice response's `documents.receiptId` /
+   `documents.deliveryNoteId` let the frontend offer them for download via
+   `GET /api/marketplace/documents/:id/download` (owner or admin only).
 
 The client-side "Export watermarked PDF" button (jsPDF, with a print-dialog
 fallback) sources every figure from that invoice API response — there is no
-separate mock invoice object on the frontend anymore.
+separate mock invoice object on the frontend anymore. The draft/sent/paid
+status stamp is deliberately an **in-app-only** indicator: it never appears
+on the exported or printed PDF, which reads identically regardless of
+workflow status.
 
 ## Why node:sqlite instead of Postgres/MySQL
 
@@ -224,7 +235,9 @@ same commission, ledger, and document pipeline already built.
 | PATCH /api/marketplace/applications/:id/deliverables/:id | creator+ | mark a deliverable submitted |
 | POST /api/marketplace/applications/:id/invoice | creator+ | generate invoice |
 | GET/PATCH /api/marketplace/invoices/:id | creator+ | view / edit line items |
-| POST /api/marketplace/invoices/:id/send, /pay | creator+ | send invoice, simulate brand payment |
+| POST /api/marketplace/invoices/:id/send, /pay | creator+ | send invoice, simulate brand payment (auto-generates receipt + delivery note) |
+| GET /api/marketplace/documents/:id/download | owner/admin | payment receipt / delivery note PDF |
+| GET /api/marketplace/admin/summary | admin | creator payouts vs. platform fees vs. tax collected, all-time |
 | GET /api/community/groups, POST /groups/:id/join, /leave | creator+ (browse is public) | community groups |
 | GET /api/commerce/listings, POST /listings, PATCH /listings/:id/sold | creator+ (browse is public) | P2P marketplace |
 | GET /api/culture/posts | — | editorial feed |

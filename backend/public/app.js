@@ -706,6 +706,12 @@ function renderInvoiceView(invoice) {
         ${invoice.status === 'sent' ? `<button class="btn red" id="payInvBtn">Simulate brand payment</button>` : ''}
         ${invoice.status === 'paid' ? `<div style="text-align:center;color:var(--ok);font-weight:700;padding:8px">✓ Paid · ${fmt(t.netCents)} in your earnings</div>` : ''}
       </div>
+      ${invoice.status === 'paid' ? `<div class="panel">
+        <h3 style="font-size:15px">Payment records</h3>
+        <p style="font-size:12px;color:#6a6a64;margin-bottom:10px">Auto-generated the moment this invoice was paid.</p>
+        ${invoice.documents.receiptId ? `<button class="btn ghost sm" style="width:100%;margin-bottom:8px" id="dlReceiptBtn">⬇ Payment receipt</button>` : ''}
+        ${invoice.documents.deliveryNoteId ? `<button class="btn ghost sm" style="width:100%" id="dlDeliveryBtn">⬇ Delivery note</button>` : ''}
+      </div>` : ''}
       ${invoice.status === 'draft' ? `<div class="panel">
         <h3 style="font-size:15px">Edit line items</h3>
         <div id="liEditor">${invoice.items.map((i, ix) => liRow(i, ix)).join('')}</div>
@@ -727,6 +733,19 @@ function renderInvoiceView(invoice) {
   }
   if ($('#sendInvBtn')) $('#sendInvBtn').onclick = () => sendInvoice(invoice.id);
   if ($('#payInvBtn')) $('#payInvBtn').onclick = () => markPaid(invoice.id);
+  if ($('#dlReceiptBtn')) $('#dlReceiptBtn').onclick = () => downloadDocument(invoice.documents.receiptId, `${invoice.invoiceNo}-receipt.pdf`);
+  if ($('#dlDeliveryBtn')) $('#dlDeliveryBtn').onclick = () => downloadDocument(invoice.documents.deliveryNoteId, `${invoice.invoiceNo}-delivery-note.pdf`);
+}
+async function downloadDocument(docId, filename) {
+  try {
+    const res = await fetch(`/api/marketplace/documents/${docId}/download`, { headers: { Authorization: 'Bearer ' + getToken() } });
+    if (!res.ok) throw new Error('Could not download document');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) { toast(e.message); }
 }
 function liRow(i, ix) { return `<div class="li-editor">
   <input data-li="${ix}" data-f="description" value="${i.description}" placeholder="Deliverable">
@@ -775,7 +794,8 @@ function exportViaPrint() {
   const invoice = window._currentInvoice, g = invoice.gig, u = state.user;
   const dstr = (iso) => new Date(iso).toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' });
   const rows = invoice.items.map((i, n) => `<tr><td style="color:#9a9a94">${n + 1}</td><td>${i.description}</td><td class="n">${i.quantity}</td><td class="n">${(i.unitPriceCents / 100).toLocaleString()}</td><td class="n">${(i.quantity * i.unitPriceCents / 100).toLocaleString()}</td></tr>`).join('');
-  const stampCol = invoice.status === 'paid' ? '#1E8E5A' : invoice.status === 'sent' ? '#6C8FD6' : '#b0aea6';
+  // The draft/sent/paid status stamp is an in-app-only indicator — the
+  // downloaded/printed document is the same regardless of workflow status.
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${invoice.invoiceNo}</title>
   <style>
   @page{size:A4;margin:0} *{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif} body{margin:0;color:#141414;background:#fff}
@@ -791,7 +811,6 @@ function exportViaPrint() {
   .wm .l{display:flex;align-items:center;gap:14px;transform:rotate(-16deg);opacity:.05}
   .wm .disc{width:46px;height:46px;border-radius:50%;background:#0C7378;color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
   .wm .mo{letter-spacing:.3em;font-size:26px;font-weight:600} .wm .x{font-size:30px}.wm .tr{font-weight:800;font-size:56px}
-  .stamp{position:absolute;top:6px;right:36px;border:3px solid ${stampCol};color:${stampCol};font-weight:800;font-size:22px;padding:4px 12px;border-radius:8px;transform:rotate(-12deg);opacity:.9}
   .parties{display:flex;gap:34px;position:relative} .parties>div{flex:1}.lab{font-size:9px;letter-spacing:.1em;color:#8a8a84;font-family:monospace;text-transform:uppercase}
   .parties b{font-size:14px;display:block;margin:4px 0}.parties p{font-size:12px;color:#5a5a5a;line-height:1.7;margin:0}
   .ref{margin:20px 0;position:relative;background:#F4F3EE;border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;gap:16px}
@@ -822,7 +841,6 @@ function exportViaPrint() {
     </div>
     <div class="body">
       <div class="wm"><div class="l"><span class="disc">M</span><span class="mo">MOTION</span></div><div class="l"><span class="x">×</span></div><div class="l"><span class="tr">try••be</span></div></div>
-      <div class="stamp">${invoice.status.toUpperCase()}</div>
       <div class="parties">
         <div><div class="lab">Invoice from</div><b>${u.name} (KYC verified)</b><p>@${u.handle}<br>${u.email}<br>${u.phone}<br>ID ${u.idMasked} · KRA PIN on file<br>Trybe Creator</p></div>
         <div><div class="lab">Bill to</div><b>${g.brand}</b><p>${g.catName}<br>Brand Partnerships Dept.<br>Attn: Marketing Lead<br>Nairobi, Kenya</p></div>
@@ -924,7 +942,7 @@ function exportViaJsPDF() {
   doc.setTextColor(150, 150, 148); doc.text('×', mx + 62, y + 5);
   doc.setTextColor(20, 20, 20); doc.setFontSize(12); doc.text('trybe', mx + 74, y + 6);
   doc.setFillColor(220, 58, 33); doc.circle(mx + 106, y - 1, 2, 'F');
-  doc.setTextColor(138, 138, 132); doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.text('VERIFIED · ' + invoice.status.toUpperCase() + ' · SCAN TO AUTHENTICATE', W - M, y + 22, { align: 'right' });
+  doc.setTextColor(138, 138, 132); doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.text('VERIFIED · SCAN TO AUTHENTICATE', W - M, y + 22, { align: 'right' });
   doc.save(invoice.invoiceNo + '.pdf');
   toast('PDF exported — <b>' + invoice.invoiceNo + '.pdf</b> · Motion × Trybe watermarked');
 }

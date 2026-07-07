@@ -2,10 +2,12 @@ const express = require('express');
 const { z } = require('zod');
 const { db, transaction } = require('../../config/db');
 const { id } = require('../../utils/helpers');
-const { requireAuth } = require('../../middleware/auth');
+const { requireAuth, requireRole } = require('../../middleware/auth');
 const { validate } = require('../../middleware/validate');
 const { audit } = require('../../utils/audit');
 const { computeInvoiceTotals, nextInvoiceNumber, serializeGig } = require('./marketplace.service');
+const mkDocs = require('./marketplace-documents.service');
+const fs = require('fs');
 
 const router = express.Router();
 
@@ -171,6 +173,7 @@ function loadInvoice(invoiceId, userId) {
     totals,
     application: { id: app.id, status: app.status },
     gig,
+    documents: mkDocs.documentsForInvoice(invoice.id),
   };
 }
 
@@ -284,15 +287,53 @@ router.post('/invoices/:id/pay', requireAuth, (req, res, next) => {
          VALUES (?,?, 'credit', ?, ?, ?, datetime('now'))`
       ).run(id('wtx'), req.user.id, totals.netCents, newBalance, invoice.invoice_no);
 
+      // Every shilling that moved is accounted for in one of three buckets:
+      // what the creator was paid, what Trybe retained as its platform fee,
+      // and the VAT collected on the brand's behalf for remittance to KRA —
+      // this is the backend's financial record of the payment, independent
+      // of what the invoice PDF says.
       db.prepare(`INSERT INTO marketplace_ledger (id, invoice_id, type, amount_cents, created_at) VALUES (?,?, 'platform_fee', ?, datetime('now'))`)
         .run(id('mkl'), invoice.id, totals.feeCents);
       db.prepare(`INSERT INTO marketplace_ledger (id, invoice_id, type, amount_cents, created_at) VALUES (?,?, 'creator_payout', ?, datetime('now'))`)
         .run(id('mkl'), invoice.id, totals.netCents);
+      db.prepare(`INSERT INTO marketplace_ledger (id, invoice_id, type, amount_cents, created_at) VALUES (?,?, 'tax_collected', ?, datetime('now'))`)
+        .run(id('mkl'), invoice.id, totals.vatCents);
     });
 
-    audit(req, req.user.id, 'marketplace.invoice_paid', { invoiceId: invoice.id, netCents: totals.netCents });
+    // Paper trail for the creator, generated once, outside the DB
+    // transaction (file I/O shouldn't hold a lock open).
+    const paidInvoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoice.id);
+    const gig = loadGig(app.gig_id);
+    const deliverables = db.prepare('SELECT * FROM application_deliverables WHERE application_id = ?').all(app.id);
+    mkDocs.generateReceipt(paidInvoice, items, totals, gig, req.user);
+    mkDocs.generateDeliveryNote(paidInvoice, deliverables, gig, req.user);
+
+    audit(req, req.user.id, 'marketplace.invoice_paid', { invoiceId: invoice.id, netCents: totals.netCents, feeCents: totals.feeCents, vatCents: totals.vatCents });
     res.json({ invoice: loadInvoice(invoice.id, req.user.id) });
   } catch (err) { next(err); }
+});
+
+// Admin financial summary: every marketplace payment split into what
+// creators were paid, what Trybe retained, and what was collected for tax.
+router.get('/admin/summary', requireAuth, requireRole('admin'), (req, res) => {
+  const rows = db.prepare(
+    `SELECT type, COUNT(*) AS transactions, SUM(amount_cents) AS total_cents FROM marketplace_ledger GROUP BY type`
+  ).all();
+  const byType = { platform_fee: 0, creator_payout: 0, tax_collected: 0 };
+  rows.forEach((r) => { byType[r.type] = r.total_cents; });
+  res.json({ byType, lines: rows });
+});
+
+router.get('/documents/:id/download', requireAuth, (req, res) => {
+  const doc = mkDocs.getDocument(req.params.id);
+  if (!doc) return res.status(404).json({ error: 'Document not found' });
+  const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(doc.invoice_id);
+  const owns = invoice && db.prepare('SELECT id FROM gig_applications WHERE id = ? AND user_id = ?').get(invoice.application_id, req.user.id);
+  if (!owns && req.user.role !== 'admin') return res.status(403).json({ error: 'Not authorized to access this document' });
+  if (!fs.existsSync(doc.file_path)) return res.status(410).json({ error: 'Document file no longer available' });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="trybe-${doc.doc_type}-${doc.id}.pdf"`);
+  fs.createReadStream(doc.file_path).pipe(res);
 });
 
 module.exports = router;
