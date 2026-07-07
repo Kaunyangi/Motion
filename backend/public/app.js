@@ -701,7 +701,8 @@ function renderInvoiceView(invoice) {
     <div class="inv-side">
       <div class="panel">
         <h3 style="font-size:15px">Invoice actions</h3>
-        <button class="btn ink" onclick="exportInvoicePDF()">⬇ Export watermarked PDF</button>
+        <button class="btn ink" id="dlInvoicePdfBtn">⬇ Download PDF invoice</button>
+        <button class="btn ghost sm" style="margin-bottom:10px" onclick="exportInvoicePDF()">🖨 Branded print preview</button>
         ${invoice.status === 'draft' ? `<button class="btn red" id="sendInvBtn">Send to ${g.brand} →</button>` : ''}
         ${invoice.status === 'sent' ? `<button class="btn red" id="payInvBtn">Simulate brand payment</button>` : ''}
         ${invoice.status === 'paid' ? `<div style="text-align:center;color:var(--ok);font-weight:700;padding:8px">✓ Paid · ${fmt(t.netCents)} in your earnings</div>` : ''}
@@ -735,10 +736,12 @@ function renderInvoiceView(invoice) {
   if ($('#payInvBtn')) $('#payInvBtn').onclick = () => markPaid(invoice.id);
   if ($('#dlReceiptBtn')) $('#dlReceiptBtn').onclick = () => downloadDocument(invoice.documents.receiptId, `${invoice.invoiceNo}-receipt.pdf`);
   if ($('#dlDeliveryBtn')) $('#dlDeliveryBtn').onclick = () => downloadDocument(invoice.documents.deliveryNoteId, `${invoice.invoiceNo}-delivery-note.pdf`);
+  if ($('#dlInvoicePdfBtn')) $('#dlInvoicePdfBtn').onclick = () => downloadFromApi(`/marketplace/invoices/${invoice.id}/pdf`, `${invoice.invoiceNo}.pdf`);
 }
-async function downloadDocument(docId, filename) {
+function downloadDocument(docId, filename) { return downloadFromApi(`/marketplace/documents/${docId}/download`, filename); }
+async function downloadFromApi(path, filename) {
   try {
-    const res = await fetch(`/api/marketplace/documents/${docId}/download`, { headers: { Authorization: 'Bearer ' + getToken() } });
+    const res = await fetch(`/api${path}`, { headers: { Authorization: 'Bearer ' + getToken() } });
     if (!res.ok) throw new Error('Could not download document');
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);

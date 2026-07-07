@@ -7,6 +7,8 @@ const { validate } = require('../../middleware/validate');
 const { audit } = require('../../utils/audit');
 const { computeInvoiceTotals, nextInvoiceNumber, serializeGig } = require('./marketplace.service');
 const mkDocs = require('./marketplace-documents.service');
+const invoicePdf = require('./marketplace-invoice-pdf.service');
+const { publicUser, PUBLIC_COLUMNS } = require('../auth/user-shape');
 const fs = require('fs');
 
 const router = express.Router();
@@ -213,6 +215,29 @@ router.get('/invoices/:id', requireAuth, (req, res) => {
   const invoice = loadInvoice(req.params.id, req.user.id);
   if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
   res.json({ invoice });
+});
+
+// A real, server-generated PDF (pdfkit, no external CDN) — regenerated on
+// every request so a still-draft invoice's edited line items are always
+// reflected, rather than serving a stale stored file.
+router.get('/invoices/:id/pdf', requireAuth, (req, res, next) => {
+  try {
+    const invoiceRow = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
+    if (!invoiceRow) return res.status(404).json({ error: 'Invoice not found' });
+    const app = db.prepare('SELECT * FROM gig_applications WHERE id = ?').get(invoiceRow.application_id);
+    const owns = app && app.user_id === req.user.id;
+    if (!owns && req.user.role !== 'admin') return res.status(404).json({ error: 'Invoice not found' });
+
+    const items = db.prepare('SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY sort_order').all(invoiceRow.id);
+    const totals = computeInvoiceTotals(items.map((i) => ({ quantity: i.quantity, unit_price_cents: i.unit_price_cents })), invoiceRow.fee_rate, invoiceRow.vat_rate);
+    const gig = loadGig(app.gig_id);
+    // The invoice's "from" party is always its actual creator, even when an
+    // admin is the one downloading it.
+    const ownerRow = db.prepare(`SELECT ${PUBLIC_COLUMNS} FROM users WHERE id = ?`).get(app.user_id);
+    const owner = publicUser(ownerRow);
+
+    invoicePdf.streamInvoicePdf(res, { invoice: invoiceRow, items, totals, gig, user: owner });
+  } catch (err) { next(err); }
 });
 
 const itemsSchema = z.object({

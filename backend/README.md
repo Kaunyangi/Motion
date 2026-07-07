@@ -113,12 +113,19 @@ nothing else needs to change.
    `documents.deliveryNoteId` let the frontend offer them for download via
    `GET /api/marketplace/documents/:id/download` (owner or admin only).
 
-The client-side "Export watermarked PDF" button (jsPDF, with a print-dialog
-fallback) sources every figure from that invoice API response — there is no
-separate mock invoice object on the frontend anymore. The draft/sent/paid
-status stamp is deliberately an **in-app-only** indicator: it never appears
-on the exported or printed PDF, which reads identically regardless of
-workflow status.
+7. `GET /api/marketplace/invoices/:id/pdf` generates the invoice itself as a
+   real PDF server-side (`marketplace-invoice-pdf.service.js`, pdfkit — no
+   external CDN, no browser print dialog). It's regenerated fresh on every
+   request rather than stored, so a still-draft invoice's edited line items
+   are always reflected instead of serving a stale file. This is the
+   frontend's primary "⬇ Download PDF invoice" button; the older client-side
+   jsPDF/browser-print export is kept alongside as a "🖨 Branded print
+   preview" for the closer-to-the-app-design visual, with jsPDF itself
+   falling back to a print dialog if its CDN doesn't load.
+
+Every one of these documents is deliberately status-agnostic: the
+draft/sent/paid stamp is an **in-app-only** workflow indicator and never
+appears on a downloaded or printed invoice, receipt, or delivery note.
 
 ## Why node:sqlite instead of Postgres/MySQL
 
@@ -235,6 +242,7 @@ same commission, ledger, and document pipeline already built.
 | PATCH /api/marketplace/applications/:id/deliverables/:id | creator+ | mark a deliverable submitted |
 | POST /api/marketplace/applications/:id/invoice | creator+ | generate invoice |
 | GET/PATCH /api/marketplace/invoices/:id | creator+ | view / edit line items |
+| GET /api/marketplace/invoices/:id/pdf | owner/admin | the invoice itself as a real PDF, generated fresh each request |
 | POST /api/marketplace/invoices/:id/send, /pay | creator+ | send invoice, simulate brand payment (auto-generates receipt + delivery note) |
 | GET /api/marketplace/documents/:id/download | owner/admin | payment receipt / delivery note PDF |
 | GET /api/marketplace/admin/summary | admin | creator payouts vs. platform fees vs. tax collected, all-time |
