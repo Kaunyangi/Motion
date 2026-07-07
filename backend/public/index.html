@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Join the Trybe — Sign up, Onboarding & Brand Marketplace</title>
+<meta name="description" content="Trybe: create your account, pick your features, and win paid brand gigs — invoiced through Motion × Trybe, backed by a real API.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='11' fill='%23DC3A21'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ============ AUTH ============ -->
+<section id="authScreen">
+  <div class="auth">
+    <div class="auth-stage">
+      <div>
+        <a class="logo"><span>try<span class="dd">••</span>be</span></a>
+        <div class="stage-hero">
+          <span class="eyebrow" style="margin-top:30px">Africa's social commerce & youth culture platform</span>
+          <h1><span class="ln"><span class="hl">your culture.</span></span><span class="ln"><span class="hl g">your commerce.</span></span><span class="ln">your trybe.</span></h1>
+          <p>Create your account, pick what you're here for, and start winning paid brand gigs — invoiced your way, watermarked and verified.</p>
+        </div>
+      </div>
+      <div class="stage-cards">
+        <div class="mini-tkt">
+          <div class="mt-band"></div>
+          <b>Coca-Cola × You — Summer Reel</b>
+          <div class="mono" style="font-size:11px;color:#6a6a64;margin-top:3px">Gig awarded · KES 90,000</div>
+          <div class="wm"><span class="wm-m">M</span><span class="mono" style="color:#9a9a94">×</span><span class="wm-t">trybe</span><span class="mono" style="font-size:9px;color:#9a9a94;margin-left:auto">VERIFIED</span></div>
+        </div>
+        <div class="stage-foot">A Motion Trybe Ventures Corporation company · Nairobi</div>
+      </div>
+    </div>
+
+    <div class="auth-form">
+      <div class="form-inner" id="authInner"><!-- injected --></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ONBOARDING ============ -->
+<section id="onboardScreen" style="display:none">
+  <div class="onboard">
+    <div class="wrap">
+      <span class="eyebrow" style="color:#d0cdc5">Step into the trybe</span>
+      <h1 id="obHi">what do you want trybe for?</h1>
+      <p class="sub">Pick everything that fits — we'll take you straight to those pages and shape your home around them. You can change this anytime.</p>
+      <div class="feat-grid" id="featGrid"></div>
+      <div class="onboard-bar">
+        <span class="cnt" id="obCnt">Select at least one to continue</span>
+        <button class="btn red" id="obGo" disabled>Enter Trybe →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ APP ============ -->
+<div class="app" id="appShell">
+  <header class="appbar">
+    <div class="wrap appbar-in">
+      <a class="logo"><span>try<span class="dd">••</span>be</span></a>
+      <div class="appbar-right">
+        <div class="wallet-pill">Earnings <b id="earnTop">KES 0</b></div>
+        <button class="avatar" id="navAvatar" title="Log out" onclick="doLogout()">T</button>
+      </div>
+    </div>
+  </header>
+  <nav class="apptabs"><div class="wrap apptabs-in" id="tabRow"></div></nav>
+  <main class="wrap">
+    <section class="view on" id="v-hub"></section>
+    <section class="view" id="v-marketplace"></section>
+    <section class="view" id="v-community"></section>
+    <section class="view" id="v-creator"></section>
+    <section class="view" id="v-commerce"></section>
+    <section class="view" id="v-events"></section>
+    <section class="view" id="v-culture"></section>
+  </main>
+</div>
+
+<div class="overlay" id="overlay" role="dialog" aria-modal="true"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
