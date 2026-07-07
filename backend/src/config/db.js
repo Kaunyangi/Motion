@@ -137,7 +137,10 @@ CREATE TABLE IF NOT EXISTS invoices (
   status TEXT NOT NULL DEFAULT 'draft', -- draft | sent | paid
   issued_at TEXT NOT NULL DEFAULT (datetime('now')),
   due_at TEXT NOT NULL,
-  paid_at TEXT
+  paid_at TEXT,
+  bank_name TEXT NOT NULL DEFAULT 'NCBA',
+  paybill TEXT NOT NULL DEFAULT '880100',
+  account_number TEXT NOT NULL DEFAULT '281080'
 );
 
 CREATE TABLE IF NOT EXISTS invoice_items (

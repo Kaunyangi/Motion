@@ -685,8 +685,8 @@ function renderInvoiceView(invoice) {
       </div>
       <div class="inv-foot">
         <div class="inv-pay"><div class="lab">Payment details</div>
-          <b>M-Pesa Paybill:</b> 247247 · Acc <b>${invoice.invoiceNo}</b><br>
-          <b>Motion Pay:</b> @${u.handle} · <b>Bank:</b> Trybe Creator Wallet<br>
+          <b>M-Pesa Paybill:</b> ${invoice.paybill} · Acc <b>${invoice.accountNumber}</b><br>
+          <b>Bank:</b> ${invoice.bankName} · <b>Motion Pay:</b> @${u.handle}<br>
           Settle by <b>${dstr(invoice.dueAt)}</b></div>
         <div class="inv-verify">
           <div class="stack">
@@ -718,7 +718,13 @@ function renderInvoiceView(invoice) {
         <div id="liEditor">${invoice.items.map((i, ix) => liRow(i, ix)).join('')}</div>
         <button class="addli" id="addLiBtn">+ Add line item</button>
         <p style="font-size:11px;color:#8a8a84;margin-top:10px">Save to recalc totals, VAT, fee and net payout.</p>
-        <button class="btn ink sm" id="saveLiBtn" style="margin-top:8px;width:100%">Save line items</button>
+      </div>
+      <div class="panel">
+        <h3 style="font-size:15px">Where the brand should pay</h3>
+        <div class="field"><label>Bank name</label><input id="pdBank" value="${invoice.bankName}" placeholder="e.g. NCBA"></div>
+        <div class="field"><label>Paybill number</label><input id="pdPaybill" value="${invoice.paybill}" placeholder="e.g. 880100"></div>
+        <div class="field"><label>Account number</label><input id="pdAccount" value="${invoice.accountNumber}" placeholder="e.g. 281080"></div>
+        <button class="btn ink sm" id="saveLiBtn" style="width:100%">Save invoice details</button>
       </div>` : ''}
       <div class="panel" style="font-size:12px;color:#6a6a64">
         <h3 style="font-size:14px">Authenticity</h3>
@@ -762,9 +768,12 @@ async function saveInvoiceItems(invoiceId) {
     const kes = +row.querySelector('[data-f="unitPriceKES"]').value || 0;
     return { description: desc, quantity: qty, unitPriceCents: Math.round(kes * 100) };
   });
+  const bankName = $('#pdBank').value.trim();
+  const paybill = $('#pdPaybill').value.trim();
+  const accountNumber = $('#pdAccount').value.trim();
   try {
-    const { invoice } = await api(`/marketplace/invoices/${invoiceId}`, { method: 'PATCH', body: { items } });
-    renderInvoiceView(invoice); toast('Line items saved ✦');
+    const { invoice } = await api(`/marketplace/invoices/${invoiceId}`, { method: 'PATCH', body: { items, bankName, paybill, accountNumber } });
+    renderInvoiceView(invoice); toast('Invoice details saved ✦');
   } catch (e) { toast(e.message); }
 }
 async function sendInvoice(invoiceId) {
@@ -863,7 +872,7 @@ function exportViaPrint() {
       </div>
     </div>
     <div class="foot">
-      <div class="pay"><div class="lab">Payment details</div><b>M-Pesa Paybill:</b> 247247 · Acc <b>${invoice.invoiceNo}</b><br><b>Motion Pay:</b> @${u.handle} · <b>Bank:</b> Trybe Creator Wallet<br>Settle by <b>${dstr(invoice.dueAt)}</b></div>
+      <div class="pay"><div class="lab">Payment details</div><b>M-Pesa Paybill:</b> ${invoice.paybill} · Acc <b>${invoice.accountNumber}</b><br><b>Bank:</b> ${invoice.bankName} · <b>Motion Pay:</b> @${u.handle}<br>Settle by <b>${dstr(invoice.dueAt)}</b></div>
       <div class="verify"><div><div class="dm"><span class="m">M</span><span class="mw">MOTION</span><span class="x">×</span><span class="t">trybe</span></div><div class="vn">VERIFIED · SCAN TO AUTHENTICATE</div></div><div class="qr"></div></div>
     </div>
   </div><script>window.onload=function(){setTimeout(function(){window.print()},250)}<\/script></body></html>`;
@@ -937,8 +946,8 @@ function exportViaJsPDF() {
   y = 792; doc.setDrawColor(230, 228, 220); doc.setLineWidth(1); doc.line(M, y, W - M, y); y += 16;
   doc.setTextColor(138, 138, 132); doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.text('PAYMENT DETAILS', M, y);
   doc.setTextColor(90, 90, 90); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-  doc.text('M-Pesa Paybill: 247247 · Acc ' + invoice.invoiceNo, M, y + 13);
-  doc.text('Motion Pay: @' + u.handle + ' · Bank: Trybe Creator Wallet · Settle by ' + dstr(invoice.dueAt), M, y + 25);
+  doc.text('M-Pesa Paybill: ' + invoice.paybill + ' · Acc ' + invoice.accountNumber, M, y + 13);
+  doc.text('Bank: ' + invoice.bankName + ' · Motion Pay: @' + u.handle + ' · Settle by ' + dstr(invoice.dueAt), M, y + 25);
   const mx = W - M - 150;
   doc.setFillColor(12, 115, 120); doc.circle(mx, y + 2, 7, 'F'); doc.setTextColor(255, 255, 255); doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.text('M', mx - 2, y + 4.5);
   doc.setTextColor(12, 115, 120); doc.setFontSize(10); doc.text('MOTION', mx + 12, y + 5);

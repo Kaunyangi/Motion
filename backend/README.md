@@ -127,6 +127,15 @@ Every one of these documents is deliberately status-agnostic: the
 draft/sent/paid stamp is an **in-app-only** workflow indicator and never
 appears on a downloaded or printed invoice, receipt, or delivery note.
 
+**Where the brand pays** is per-invoice and editable, not a global constant:
+`invoices.bank_name` / `paybill` / `account_number` default to Trybe's
+collection account (NCBA, paybill `880100`, account `281080`) at invoice
+creation, and can be overridden per invoice via the same `PATCH
+/api/marketplace/invoices/:id` call used to edit line items (draft only) —
+the frontend's "Where the brand should pay" panel exposes this. Every
+generated document (PDF, print export, on-screen view) reads these three
+fields live, so a change is reflected everywhere at once.
+
 ## Why node:sqlite instead of Postgres/MySQL
 
 This sandbox cannot compile native modules (no network route to fetch

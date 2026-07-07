@@ -142,8 +142,8 @@ function streamInvoicePdf(res, { invoice, items, totals, gig, user }) {
   doc.fillColor(SOFT).font('Helvetica-Bold').fontSize(8);
   line(40, footerY + 10, 'PAYMENT DETAILS', { width: 300 });
   doc.font('Helvetica').fontSize(9).fillColor(INK);
-  line(40, footerY + 22, `M-Pesa Paybill: 247247 · Acc ${invoice.invoice_no}`, { width: 400 });
-  line(40, footerY + 34, `Motion Pay: @${user.handle} · Bank: Trybe Creator Wallet · Settle by ${dstr(invoice.due_at)}`, { width: 400 });
+  line(40, footerY + 22, `M-Pesa Paybill: ${invoice.paybill} · Acc ${invoice.account_number}`, { width: 400 });
+  line(40, footerY + 34, `Bank: ${invoice.bank_name} · Motion Pay: @${user.handle} · Settle by ${dstr(invoice.due_at)}`, { width: 400 });
   doc.fillColor(SOFT).font('Helvetica').fontSize(7.5);
   line(255, footerY + 46, 'VERIFIED · SCAN TO AUTHENTICATE', { width: 300, align: 'right' });
 

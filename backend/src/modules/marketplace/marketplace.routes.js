@@ -171,6 +171,9 @@ function loadInvoice(invoiceId, userId) {
     issuedAt: invoice.issued_at,
     dueAt: invoice.due_at,
     paidAt: invoice.paid_at,
+    bankName: invoice.bank_name,
+    paybill: invoice.paybill,
+    accountNumber: invoice.account_number,
     items: items.map((i) => ({ id: i.id, description: i.description, quantity: i.quantity, unitPriceCents: i.unit_price_cents })),
     totals,
     application: { id: app.id, status: app.status },
@@ -246,6 +249,9 @@ const itemsSchema = z.object({
     quantity: z.number().int().positive(),
     unitPriceCents: z.number().int().nonnegative(),
   })).min(1),
+  bankName: z.string().min(1).max(60).optional(),
+  paybill: z.string().min(1).max(30).optional(),
+  accountNumber: z.string().min(1).max(30).optional(),
 });
 
 router.patch('/invoices/:id', requireAuth, validate(itemsSchema), (req, res, next) => {
@@ -262,6 +268,16 @@ router.patch('/invoices/:id', requireAuth, validate(itemsSchema), (req, res, nex
         `INSERT INTO invoice_items (id, invoice_id, description, quantity, unit_price_cents, sort_order) VALUES (?,?,?,?,?,?)`
       );
       req.body.items.forEach((it, i) => insert.run(id('iitem'), invoice.id, it.description, it.quantity, it.unitPriceCents, i));
+
+      // Where the brand should actually send payment — editable per invoice
+      // since a creator may want a different collection account than the
+      // platform default.
+      db.prepare('UPDATE invoices SET bank_name = ?, paybill = ?, account_number = ? WHERE id = ?').run(
+        req.body.bankName !== undefined ? req.body.bankName : invoice.bank_name,
+        req.body.paybill !== undefined ? req.body.paybill : invoice.paybill,
+        req.body.accountNumber !== undefined ? req.body.accountNumber : invoice.account_number,
+        invoice.id
+      );
     });
 
     res.json({ invoice: loadInvoice(invoice.id, req.user.id) });
